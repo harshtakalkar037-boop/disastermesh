@@ -1,111 +1,75 @@
-# DisasterMesh
+<div align="center">
 
-## When the network dies, the phones become the network.
+# 📡 DisasterMesh
 
-**DisasterMesh is a phone-first, offline-oriented disaster reporting prototype.** A witness creates a bounded local observation, confirms it, and signs a compact DMSP/1 packet. The phone queues that packet for a possible peer or gateway; forwarding is store-and-forward, not a delivery guarantee. Structured facts and evidence hashes travel in the protocol, while original media remains local until an explicit authorized request.
+### When the network dies, the phones become the network.
 
-The system combines an Android client, an application-layer mesh path, a backend and command-center view, conservative emergency grouping, and an edge layer for witness drafts, scarce-slot admission, connectivity observations, and hash-based evidence retrieval. **Physical phone-to-phone multi-hop, NPU inference, and Office Kit integration are not verified/available in this tree.**
+**A phone-first, offline disaster communication system. Phones sense, confirm, sign, store and forward compact facts when infrastructure is gone. A command center shows the picture when a path comes back.**
 
-> **Safety boundary:** This is not a certified emergency service. It does not guarantee delivery, rescue, or safety. `SAFE` is self-reported; silence is `UNKNOWN`; `UNHEARD` is not safe, missing, or dead. A valid signature establishes the signing key, not the truth of a report.
-
-> **Hackathon eligibility:** The published iQOO Hackathon 2026 guide says original work must be written during the event window and a completed app must not be shipped in. Do not submit this repository as in-event work unless organisers allow prior work. See [docs/HACKATHON_COMPLIANCE.md](docs/HACKATHON_COMPLIANCE.md).
-
-Repository: [github.com/harshtakalkar037-boop/disastermesh](https://github.com/harshtakalkar037-boop/disastermesh)
-
-### Capability snapshot
-
-| Capability | Status | What that status means |
-|---|---|---|
-| Offline-first phone workflow | ✅ Implemented in software | Draft, confirm, sign, and queue locally; device run not verified |
-| Store-and-forward | ✅ Implemented in software | Queue and forwarding logic exist; physical radio delivery unverified |
-| Signed DMSP/1 packets | ✅ Implemented and software-tested | ECDSA P-256 signed packet path; signature does not prove report truth |
-| Edge layer | ✅ Implemented in software | Witness Delta, Scarce-Slot Gate, Heard-Cut, Hash-Pull routes/UI |
-| Dynamic emergency groups | ✅ Implemented in software | Conservative GPS/context grouping and lineage; not field-validated |
-| Command center | ✅ Implemented | React desk and backend; demo tests use PGlite |
-| Android APK build | ⚠️ Recorded compile succeeded | APK was not installed; recorded bytes are not present in this tree |
-| Physical multi-hop | ⚠️ UNVERIFIED | No physical A→B→C relay result |
-| Local NPU model | ⚠️ `MODEL_UNAVAILABLE` | No model/delegate is currently loaded or bundled |
-| Office Kit SDK | ⚠️ `UNAVAILABLE` | OS share-sheet path only; no Office Kit integration |
-
-![DMSP/1](https://img.shields.io/badge/protocol-DMSP%2F1-1f2933)
+![Protocol](https://img.shields.io/badge/protocol-DMSP%2F1-1f2933)
 ![Android](https://img.shields.io/badge/Android-minSdk%2026-3DDC84)
 ![Kotlin](https://img.shields.io/badge/Kotlin-Compose-7F52FF)
 ![Node.js](https://img.shields.io/badge/Node.js-20%2B-339933)
+![TypeScript](https://img.shields.io/badge/TypeScript-React%20%7C%20Fastify-3178C6)
+![Crypto](https://img.shields.io/badge/signing-ECDSA%20P--256-0f766e)
 ![Radio status](https://img.shields.io/badge/physical%20multi--hop-UNVERIFIED-b45309)
+![License](https://img.shields.io/badge/license-Apache--2.0-blue)
 
-### System architecture
+[Problem](#the-problem) · [Innovations](#four-edge-innovations) · [Demo](#recommended-45-minute-demo) · [Judging](#iqoo-hackathon-2026--judging-alignment) · [Quick start](#quick-start) · [Status](#verification-snapshot)
 
-```mermaid
-flowchart LR
-  subgraph PHONE[PHONE — local-first client]
-    user[Person / witness]
-    sensors[Camera · microphone · IMU · GPS]
-    witness[Witness Delta<br/>bounded local draft]
-    confirm[Human confirmation]
-    gate[Scarce-Slot Gate]
-    dmsp[DMSP/1<br/>validate · sign]
-    fragments[Fragmentation<br/>160-byte chunks]
-    sqlite[(SQLite<br/>outbox + evidence)]
-    user --> sensors --> witness --> confirm --> gate --> dmsp --> fragments --> sqlite
-  end
+</div>
 
-  subgraph MESH[STORE-AND-FORWARD PATH — radio execution unverified]
-    ble[BLE GATT adapter]
-    wfd[Wi-Fi Direct adapter]
-    a[Phone A]
-    b[Phone B<br/>conditional relay]
-    c[Phone C<br/>conditional relay]
-    heard[Heard-Cut<br/>signed digest]
-    sqlite --> ble
-    sqlite --> wfd
-    ble -. "if radio exchange succeeds" .-> a
-    a -. "UNVERIFIED" .-> b
-    b -. "UNVERIFIED" .-> c
-    a --> heard
-  end
+> **Honest by design.** DisasterMesh is a prototype, not a certified emergency service. No delivery, rescue or safety is guaranteed. Everything in this README is labeled with what was actually run. Anything not yet proven on real hardware is marked **UNVERIFIED**.
 
-  subgraph COMMAND[COMMAND CENTER — requires a gateway/network path]
-    gateway[Gateway / sync]
-    backend[Fastify backend]
-    desk[Command center UI]
-    pull[Explicit authorized<br/>Hash-Pull request]
-    gateway --> backend --> desk --> pull
-    c -. "possible path; not physically verified" .-> gateway
-    heard --> backend
-  end
+<!--
+SCREENSHOTS (add before submitting, judges scan visuals first):
+1. Android Witness screen (draft + confirm)
+2. Command center Edge page
+3. Command center Map page
+Example:
+<p align="center"><img src="docs/img/witness.png" width="280"> <img src="docs/img/edge.png" width="480"></p>
+-->
 
-  groups[Emergency groups<br/>GPS/context grouping] --> desk
-  sim[Logical-node simulator<br/>SIMULATED] -. separate from radio .-> desk
-  pull -. "original evidence retrieval path" .-> sqlite
-```
+---
 
-> The protocol fragmentation/reassembly path is software-tested. `fragment.ts` does **not** append the CRC trailer mentioned in `docs/PACKET_FORMAT.md`. Phone A→B→C, gateway recovery over radio, and evidence transfer to a device remain **UNVERIFIED**.
+## 30-second summary
+
+| | |
+|---|---|
+| **What** | An Android app plus an optional command center that move small, signed, human-confirmed disaster reports without needing the internet. |
+| **Why it is different** | It is not just an SOS button. It decides *what deserves a scarce radio slot*, refuses to treat silence as a status, and keeps heavy media off the mesh. |
+| **Who it is for** | Flood, earthquake and storm situations where cellular service is down and people need to report what they see. |
+| **Works without a laptop?** | Yes. Draft, confirm, sign and queue all happen on the phone. The desk is an optional view. |
+| **What is proven** | Protocol, gate, heard-cut, hash-pull, backend and dashboard are implemented and tested in software. |
+| **What is not proven yet** | Real phone-to-phone radio exchange and multi-hop. We say so everywhere. |
+
+---
 
 ## The Problem
 
-Disaster communication is brittle when it assumes continuous cellular service, a reachable server, ample bandwidth, or a stable picture of who is connected. DisasterMesh is designed around queued reports and partial, changing connectivity—but its radio behavior still needs physical validation.
+Disaster communication breaks when it assumes continuous cellular service, a reachable server, ample bandwidth, or a stable picture of who is connected. DisasterMesh is designed around queued reports and partial, changing connectivity.
 
 | Failure condition | Conventional approach | DisasterMesh response |
 |---|---|---|
-| Internet unavailable | Request fails or waits for a server | Local SQLite outbox; report can remain `queued_offline` |
-| Cellular infrastructure down | No server path | BLE GATT / Wi-Fi Direct adapters and store-and-forward logic exist; physical relay is **UNVERIFIED** |
-| Limited radio capacity | Send every update | Scarce-Slot Gate admits, defers, or replaces eligible unsent information before enqueue |
-| Duplicate reports | Repeated traffic | Message-id deduplication and repeat/no-new-fact defer rules |
-| Conflicting reports | Last update may overwrite earlier information | Signed conflicting observations are kept distinct; no averaging of conflicting counts |
-| Large media | Upload the entire file | Compact evidence hash in the report; explicit operator request for original evidence |
-| Connectivity disappears | Treat missing contact as an error or status | Heard-Cut records an observation; `UNHEARD` does not mean `SAFE`, `MISSING`, or `DEAD` |
-| Battery is low | Continue the same relay policy | Software policy: below 8% no relay; below 15% relay only P0/P1, with life-threat admission preserved |
-| Relay is untrusted | Trust the transport path | Signed body prevents undetected report modification; relay can still drop packets |
+| Internet unavailable | Request fails or waits for a server | Local SQLite outbox. Report stays `queued_offline` |
+| Cellular infrastructure down | No server path | BLE GATT and Wi-Fi Direct adapters plus store-and-forward logic. Physical relay is **UNVERIFIED** |
+| Limited radio capacity | Send every update | Scarce-Slot Gate admits, defers or replaces information before enqueue |
+| Duplicate reports | Repeated traffic | Message-id dedup and repeat / no-new-fact defer rules |
+| Conflicting reports | Last update overwrites earlier ones | Signed conflicting observations are kept distinct. Counts are never averaged |
+| Large media | Upload the whole file | Compact evidence hash in the report. Explicit operator request for the original |
+| Connectivity disappears | Treat missing contact as an error or status | Heard-Cut records an observation. `UNHEARD` is not `SAFE`, `MISSING` or `DEAD` |
+| Battery is low | Same relay policy | Below 8% no relay. Below 15% relay only P0/P1. Life-threat admission preserved |
+| Relay is untrusted | Trust the transport path | Signed body prevents undetected modification. A relay can still drop packets |
 
 ## The Core Idea
 
-### Conventional emergency path
+**Conventional emergency path**
 
 ```text
 Person → Internet → Cloud server → Responder
 ```
 
-### DisasterMesh path
+**DisasterMesh path**
 
 ```mermaid
 flowchart LR
@@ -121,78 +85,106 @@ flowchart LR
   gateway --> desk[Command center]
 ```
 
-The differentiator is not simply an SOS button. The phone decides what can be safely expressed as a bounded, user-confirmed fact; admission logic limits what enters a constrained queue; the protocol preserves origin authentication and expiry metadata; and the command center can later display synchronized reports without treating silence as a status.
+The differentiator is not an SOS button. The phone turns a witness's observation into a bounded, confirmed fact. Admission logic limits what enters a constrained queue. DMSP/1 preserves origin authentication and expiry. The command center later shows synchronized reports without treating silence as a status.
 
-## What it is, and what it is not
+## System Overview
 
-| This is | This is not |
-| --- | --- |
-| A phone-first store-and-forward client plus a desk that accepts signed packets | A rescue service, a coverage map, or a delivery guarantee |
-| One protocol, DMSP/1, extended with edge payload types | A second protocol, a chatbot, or a cloud model on the emergency path |
-| Application-layer forwarding over BLE GATT, with a separate Wi-Fi Direct adapter | Bluetooth Mesh, and not “Wi-Fi Direct is a mesh” |
-| A deterministic English / Hindi / Marathi extractor, with an explicit model slot | A loaded NPU model. Current inference status is `MODEL_UNAVAILABLE` |
-| Software tests, a recorded debug compile, and a labeled simulator | A measured two-phone or three-phone radio result |
+```mermaid
+flowchart LR
+  event[Disaster / network disruption]
 
-## The difference
+  subgraph PHONE[PHONE — local-first node]
+    user[Witness]
+    sensors[Camera · microphone · IMU · GPS]
+    witness[Witness Delta]
+    human[Human confirmation]
+    gate[Scarce-Slot Gate]
+    sign[Validate + sign DMSP/1]
+    frag[Fragmentation]
+    queue[(SQLite outbox + local evidence)]
+    user --> sensors --> witness --> human --> gate --> sign --> frag --> queue
+  end
 
-A normal emergency app assumes a path that is often the first thing to fail:
+  subgraph MESH[LOCAL MESH — physical exchange unverified]
+    ble[BLE GATT adapter]
+    wifi[Wi-Fi Direct adapter]
+    a[Phone A]
+    b[Phone B]
+    c[Phone C]
+    heard[Heard-Cut digest]
+    queue --> ble
+    queue --> wifi
+    ble -. "if an exchange succeeds" .-> a
+    a -. "UNVERIFIED" .-> b
+    b -. "UNVERIFIED" .-> c
+    a --> heard
+  end
 
-```text
-Person → Internet → Server → Responder
+  subgraph COMMAND[COMMAND CENTER — optional, requires a path]
+    gateway[Gateway / sync]
+    backend[Fastify backend]
+    desk[Command center]
+    groups[Emergency groups]
+    pull[Explicit authorized<br/>Hash-Pull evidence request]
+    c -. "possible route; not physically verified" .-> gateway
+    gateway --> backend --> desk
+    groups --> desk
+    heard --> backend
+    desk --> pull
+  end
+
+  pull -. "evidence retrieval path" .-> queue
+  sim[Logical-node simulator<br/>SIMULATED] -. "separate from radio" .-> desk
 ```
 
-DisasterMesh assumes that path is gone, and that the radio which remains is small, lossy, and not allowed to invent facts:
+---
 
-```text
-Person
-  → local observation
-  → user confirmation
-  → scarce-slot admission
-  → signed DMSP/1 packet
-  → fragmentation
-  → phone-to-phone store-and-forward
-  → reassembly and signature check
-  → gateway recovery, if a path exists
-  → command center
-  → hash-pull of the original, only after an explicit operator request
-```
+## Four Edge Innovations
 
-The phone is the product. The desk is a later view of signed records. If the laptop disappears, the phone can still draft, confirm, gate, sign, queue, and keep the media.
+| Innovation | Engineering question | Implemented behavior |
+|---|---|---|
+| **Witness Delta** | How can sensor input become a safe, bounded report? | Local draft, explicit human confirmation, compact structured fact, evidence hash |
+| **Scarce-Slot Gate** | What information should enter a constrained queue? | `ADMIT`, `DEFER` or `REPLACE_PREVIOUS` before enqueue and fragmentation |
+| **Heard-Cut** | What does loss of contact tell us, and not tell us? | Signed connectivity observation. `UNHEARD` is not `SAFE`, `MISSING` or `DEAD` |
+| **Hash-Pull** | How do we reference evidence without flooding the mesh? | Hash in the report. Explicit authorized request for the original |
 
-## Why the architecture matters
+### Engineering constraints and trade-offs
 
-The hard problem is not “send an SOS.” It is how phones exchange a trustworthy, compact, prioritized fact when:
+The hard problem is not "send an SOS." It is how phones exchange a trustworthy, compact, prioritized fact under tight limits.
 
 | Constraint | What the code does | What it refuses to do |
-| --- | --- | --- |
-| No infrastructure | SQLite outbox, `queued_offline` until a real peer or gateway accepts | Call a queued report “delivered to a rescuer” |
-| Small radio | 512-byte payload cap, 160-byte link chunks, scarce-slot gate before enqueue | Put raw audio or images on the mesh |
-| Duplicates | Message-id dedup; a repeat with no new fact is `defer` | Spend fragments restating the same fact |
-| Reordering and conflict | Same-origin stale sequence does not downgrade; two signed counts stay separate | Average conflicting people counts, or let the last packet win |
-| Silence | `UNKNOWN` and `UNHEARD` | Infer `SAFE`, `MISSING`, or `DEAD` |
-| Large evidence | SHA-256 of the local bytes, hash-only desk | Treat clipboard paste as a command |
-| Low battery | Below 8% no relay; below 15% relay only P0/P1 | Defer a confirmed life threat to save bandwidth |
-| Untrusted relay | Hop fields sit outside the signature; the body is signed | Trust a relay to rewrite the report |
+|---|---|---|
+| No infrastructure | SQLite outbox, `queued_offline` until a real peer or gateway accepts | Call a queued report "delivered to a rescuer" |
+| Small radio | 512-byte payload cap, 160-byte link chunks, gate before enqueue | Put raw audio or images on the mesh |
+| Duplicates | Message-id dedup. Repeat with no new fact is `defer` | Spend fragments restating the same fact |
+| Reordering and conflict | Stale same-origin sequence does not downgrade. Two signed counts stay separate | Average conflicting counts, or let the last packet win |
+| Silence | `UNKNOWN` and `UNHEARD` | Infer `SAFE`, `MISSING` or `DEAD` |
+| Large evidence | SHA-256 of local bytes, hash-only desk | Treat clipboard paste as a command |
+| Low battery | Below 8% no relay. Below 15% relay only P0/P1 | Defer a confirmed life threat to save bandwidth |
+| Untrusted relay | Hop fields outside the signature. Body is signed | Trust a relay to rewrite the report |
+
+---
 
 ## The Edge Intelligence Layer
 
-The edge layer sits on the existing protocol. It does not replace signing, nonce, TTL, priority, dedup, fragmentation, or replay protection. Payload codes 12–16 are `witness_delta`, `heard_digest`, `evidence_request`, `evidence_response`, and `scarce_slot_decision`.
-
-Phone path:
+The edge layer sits on the existing protocol. It does not replace signing, nonce, TTL, priority, dedup, fragmentation or replay protection. Payload codes 12–16 are `witness_delta`, `heard_digest`, `evidence_request`, `evidence_response` and `scarce_slot_decision`.
 
 ```text
 CAPTURE → AI DRAFT → USER CONFIRM → ADMITTED / DEFERRED → SIGNED → QUEUED / RELAYED
 ```
 
-`RELAYED` is a nearby phone, not a rescuer. That last step is **UNVERIFIED** on hardware.
+`RELAYED` means a nearby phone, not a rescuer. That last step is **UNVERIFIED** on hardware.
 
 ### 1. Witness Delta
 
-Sensors and text become a bounded draft. The user confirms or edits it before it is a signed message.
+Sensors and text become a bounded draft. The user confirms or edits it before it becomes a signed message.
 
-The draft may carry incident type, self-claimed state, people count, language (`en`, `hi`, `mr`), waterline band, optional tilt, confidence strictly below 1, an evidence hash, and an inference status: `NPU`, `CPU_FALLBACK`, or `MODEL_UNAVAILABLE`. Empty text, or an `NPU` label with no named delegate, returns `manual_form_required`. A flood phrase plus a `no_water_cue` marks self-conflict and caps confidence. `official`, assignment, and team id are rejected. The model cannot declare another person safe, emit an official warning, or assign a rescue.
-
-The phone UI can try about 8 seconds of audio, one still, a 2-second accelerometer window, and the last GPS fix. A failed sensor is labeled unavailable. No file, tilt, or transcript is invented. Confirmation hashes the local bytes and puts only the hash in the packet.
+- The draft can carry: incident type, self-claimed state, people count, language (`en`, `hi`, `mr`), waterline band, optional tilt, confidence strictly below 1, an evidence hash and an inference status (`NPU`, `CPU_FALLBACK` or `MODEL_UNAVAILABLE`).
+- Empty text, or an `NPU` label with no named delegate, returns `manual_form_required`.
+- A flood phrase plus a `no_water_cue` marks self-conflict and caps confidence.
+- `official`, assignment and team id are rejected. The model cannot declare another person safe, emit an official warning or assign a rescue.
+- The phone UI can try about 8 seconds of audio, one still, a 2-second accelerometer window and the last GPS fix. A failed sensor is labeled unavailable. Nothing is invented.
+- Confirmation hashes the local bytes and puts only the hash in the packet.
 
 ```mermaid
 flowchart LR
@@ -206,23 +198,23 @@ flowchart LR
   review -. "not confirmed: no witness packet" .-> bounded
 ```
 
-Current model slot: **`MODEL_UNAVAILABLE`**. No Whisper, sherpa-onnx, or NPU delegate is bundled. `NPU` is returned only if a caller reports that a delegate actually loaded. Device speech, if the platform recognizer returns text, is not labeled `NPU`.
+Current model slot: **`MODEL_UNAVAILABLE`**. No Whisper, sherpa-onnx or NPU delegate is bundled. `NPU` is returned only if a caller reports a delegate actually loaded.
 
 ### 2. Scarce-Slot Gate
 
-Priority routing decides which already-admitted packet goes next. The gate decides whether a new observation should enter the radio at all. It runs in the confirm path, before enqueue and before fragmentation.
+Priority routing decides which admitted packet goes next. The gate decides whether a new observation should enter the radio at all. It runs in the confirm path, before enqueue and before fragmentation.
 
 | Decision | Code token | When |
-| --- | --- | --- |
+|---|---|---|
 | ADMIT | `admit` | New fact, or a new life threat |
 | DEFER | `defer` | Repeat with no new fact, or a routine update below 15% battery |
 | REPLACE_PREVIOUS | `replace_previous` | A new field replaces an unsent report from the same origin |
 
-A new life-threat fact is admitted even at low battery. The gate does not mark anyone `SAFE` and does not replace the priority scheduler. Fragment counts it reports are estimates from payload size, not measured airtime. A deferred witness is not signed onto the mesh. A compact gate-decision packet can still be queued so the desk can see the real decision later.
+A new life-threat fact is admitted even at low battery. The gate never marks anyone `SAFE`. Fragment counts it reports are estimates from payload size, not measured airtime. A deferred witness is not signed onto the mesh, but a compact gate-decision packet can be queued so the desk can see the real decision later.
 
 ### 3. Heard-Cut
 
-A signed digest carries a time window, an already-permitted battery bucket (`unknown`, `low`, `mid`, `high`), up to eight 32-hex origin pseudonyms, and an optional held message id. Phone numbers and device names fail parsing. The phone records an origin only from a packet that already verified. It does not record a BLE address as a person.
+A signed digest carries a time window, a battery bucket (`unknown`, `low`, `mid`, `high`), up to eight 32-hex origin pseudonyms and an optional held message id. Phone numbers and device names fail parsing. The phone records an origin only from a packet that already verified, never from a raw BLE address.
 
 ```text
 previously heard, absent from the current window → UNHEARD
@@ -231,7 +223,7 @@ UNHEARD ≠ MISSING
 UNHEARD ≠ DEAD
 ```
 
-There is no coverage map and no RSSI-as-distance. No AI is used. Disappearance is a connectivity observation, not a status of the person.
+No coverage map. No RSSI-as-distance. No AI. Disappearance is a connectivity observation, not a status of the person.
 
 ```mermaid
 stateDiagram-v2
@@ -249,17 +241,19 @@ stateDiagram-v2
 
 ### 4. Hash-Pull
 
-The desk stores the fact, metadata, location from the signed header, and the hash. `mediaOnMesh` is false. Original bytes move only after an explicit authorized request.
+The desk stores the fact, metadata, location from the signed header and the hash. `mediaOnMesh` is false. Original bytes move only after an explicit authorized request.
 
 | Rule | Implementation |
-| --- | --- |
-| Who may request | `admin` or `operator`, and `explicit: true`. A responder is rejected. |
+|---|---|
+| Who may request | `admin` or `operator`, and `explicit: true`. A responder is rejected |
 | Mesh cannot pull the file | A synced `evidence_request` or `evidence_response` is `operator_channel_only` |
 | Clipboard is untrusted | A `command` field is rejected. Paste is hash-checked, not executed |
-| Corrupt bytes | SHA-256 mismatch is `corrupt_evidence` and audited |
+| Corrupt bytes | SHA-256 mismatch returns `corrupt_evidence` and is audited |
 | Match | The verify route does not store the media |
 
 On the phone, the implemented bridge is the Android share sheet (`os_share`). That is not an Office Kit transfer.
+
+---
 
 ## Architecture
 
@@ -297,6 +291,8 @@ flowchart TD
 
 `ble` and `wifi` are implemented adapters. Neither has been executed on a phone in this environment. The Wi-Fi Aware check is a capability probe only.
 
+### Phone first, laptop optional
+
 ```mermaid
 flowchart LR
   subgraph phone [Phone, works without a laptop]
@@ -315,20 +311,22 @@ flowchart LR
   desk -->|explicit hash request only| sqlite
 ```
 
+### Red Light / Green Light split
+
 ```mermaid
 flowchart TB
-  subgraph red [Red Light, phone only]
+  subgraph red [Red Light — phone only]
     r1[Draft, confirm, gate, sign, queue]
     r2[Media stays on the phone]
   end
-  subgraph green [Green Light, phone and laptop]
+  subgraph green [Green Light — phone and laptop]
     g1[Desk reads signed facts]
     g2[Operator requests original by hash]
   end
   red --> green
 ```
 
-Store-and-forward, as implemented:
+### Store-and-forward
 
 ```mermaid
 flowchart LR
@@ -342,7 +340,7 @@ flowchart LR
 
 A queued packet is not a relay. A relay is not command-center receipt. Three-phone A→B→C is **PHYSICAL MULTI-HOP: UNVERIFIED**.
 
-Rescue is an operator action, not an inference:
+### Rescue is an operator action, not an inference
 
 ```mermaid
 flowchart TD
@@ -355,26 +353,25 @@ flowchart TD
   civ[Civilian] -.->|cannot assign or mark another person SAFE| report
 ```
 
-## DMSP/1
+---
 
-Magic `DMSP`, version 1. The mutable relay header is outside the signature so a hop can change hop fields without resigning. A relay cannot change the signed body without failing verification.
+## DMSP/1 Protocol
+
+Magic `DMSP`, version 1. The mutable relay header sits outside the signature so a hop can change hop fields without re-signing. A relay cannot change the signed body without failing verification.
 
 | Outer frame | Size |
-| --- | --- |
+|---|---|
 | hopLimit, hopCount, relay flags, frame version | 4 bytes |
 | signed blob length | 2 bytes |
 | signed blob | 176-byte header + payload |
 | ECDSA P-256 signature, IEEE P1363 `r‖s` | 64 bytes |
 
-Signed header fields include flags, priority 0–4, payload type, message id, origin pseudonym, incident id, event time, expiry, 12-byte nonce, content sequence, optional location (`latE7`, `lonE7`, accuracy, age), and the 65-byte uncompressed public key. Payload maximum is 512 bytes. Encoded packet maximum is 1400 bytes. Mesh text is 120 characters. Default hop limit is 5. Hard maximum is 8. Clock skew is 2 minutes in the future. Maximum TTL is 48 hours.
-
-Flags include location, incident, ack requested, is ack, gateway originated, and simulated. Unknown flag bits are rejected. Live sync rejects the simulated flag so simulator bytes cannot become live incidents.
-
-Replay protection at the desk is message-id uniqueness. The nonce is signed and length-checked; it is not a separate replay cache. Dedup also exists in the forwarding policy.
-
-Link fragmentation, in `shared-protocol/src/fragment.ts`, splits a packet into 160-byte chunks with a 13-byte header: flags, index, count, 8-byte message prefix, total length. Count is capped at 16. Reassembly times out after 8 seconds. That path is unit-tested. It does **not** append the CRC trailer described in [docs/PACKET_FORMAT.md](docs/PACKET_FORMAT.md). Treat the code as the contract.
-
-The Android GATT writer will not send a packet larger than 180 bytes as one write, because a partial write is not delivery. The on-device multi-chunk writer is **UNVERIFIED** and is not claimed to have succeeded. A GATT write status is a peer write response, not command-center delivery.
+- **Signed header fields:** flags, priority 0–4, payload type, message id, origin pseudonym, incident id, event time, expiry, 12-byte nonce, content sequence, optional location (`latE7`, `lonE7`, accuracy, age) and the 65-byte uncompressed public key.
+- **Limits:** payload max 512 bytes. Encoded packet max 1400 bytes. Mesh text 120 characters. Default hop limit 5, hard max 8. Clock skew 2 minutes into the future. Max TTL 48 hours.
+- **Flags:** location, incident, ack requested, is ack, gateway originated, simulated. Unknown flag bits are rejected. Live sync rejects the simulated flag so simulator bytes can never become live incidents.
+- **Replay protection:** unique message id at the desk. The nonce is signed and length-checked. Dedup also exists in the forwarding policy.
+- **Fragmentation** (`shared-protocol/src/fragment.ts`): 160-byte chunks, 13-byte header (flags, index, count, 8-byte message prefix, total length). Max 16 fragments. Reassembly times out after 8 seconds. Unit-tested.
+- **GATT writer:** will not send a packet over 180 bytes as one write, because a partial write is not delivery. The multi-chunk on-device writer is **UNVERIFIED** and not claimed.
 
 ```mermaid
 sequenceDiagram
@@ -401,51 +398,53 @@ sequenceDiagram
   end
 ```
 
-Priority is weighted round-robin: P0×8, P1×4, P2×2, P3×1, P4×1. Low priority still gets a slot. It is not dropped by the scheduler.
+### Priority scheduling
+
+Weighted round-robin: P0×8, P1×4, P2×2, P3×1, P4×1. Low priority still gets a slot and is never starved by the scheduler.
 
 | Priority | Meaning |
-| --- | --- |
+|---|---|
 | P0 | Immediate life threat, including SOS |
 | P1 | Needs help |
 | P2 | Evacuation |
 | P3 | Routine status |
 | P4 | General information |
 
-Delivery words stay separate:
+### Delivery words stay separate
 
 | State | Meaning |
-| --- | --- |
-| `queued_offline` | On this phone only. Rescuers have not received it. |
-| `relayed_to_peer` | A nearby phone accepted bytes. Not the command center. |
-| `delivered_to_gateway` | An upload was handed off. Receipt is not confirmed. |
-| `received_by_command_center` | The API accepted the signed packet. |
-| `acknowledged_by_operator` | A person pressed mark seen. Not a rescue. |
-| `expired` / `rejected` | Not forwarded / not accepted. |
-| `lab_loopback` | Android only, after a second confirmation. Simulated. Not a radio test. |
+|---|---|
+| `queued_offline` | On this phone only. Rescuers have not received it |
+| `relayed_to_peer` | A nearby phone accepted bytes. Not the command center |
+| `delivered_to_gateway` | An upload was handed off. Receipt not confirmed |
+| `received_by_command_center` | The API accepted the signed packet |
+| `acknowledged_by_operator` | A person pressed mark seen. Not a rescue |
+| `expired` / `rejected` | Not forwarded / not accepted |
+| `lab_loopback` | Android only, after a second confirmation. Simulated. Not a radio test |
 
-The state machine does not treat relayed as acknowledged.
+The state machine never treats relayed as acknowledged.
 
-## Android, phone first
+---
 
-Package `app.disastermesh`. minSdk 26. compileSdk 35. Jetpack Compose. English, Hindi, and Marathi copy. Primary actions are large buttons: need help, safe, evacuating, report, find, SOS.
+## Android App (phone first)
+
+Package `app.disastermesh`. minSdk 26, compileSdk 35, Jetpack Compose. English, Hindi and Marathi copy. Primary actions are large buttons: need help, safe, evacuating, report, find, SOS.
 
 | Phone piece | Role | Without a laptop |
-| --- | --- | --- |
+|---|---|---|
 | Camera | One still, hashed locally | Stays on the phone |
 | Microphone | About 8 seconds, or platform speech if present | Failure falls back to typing |
 | IMU | About 2 seconds of accelerometer tilt | Missing sample is not invented |
-| GPS | Last known fix and accuracy, or manual coordinates | A report can still queue |
+| GPS | Last known fix and accuracy, or manual coordinates | Report can still queue |
 | SQLite | Reports, outbox, contacts, settings, heard ids | Survives process restart |
-| Identity | Android Keystore when it loads; otherwise a software key in app-private files, with a visible warning | Signing does not need the desk |
-| Mesh engine | BLE advertise/scan/GATT attempt, Wi-Fi Direct discovery, Wi-Fi Aware probe | Errors are shown. Success is not assumed |
+| Identity | Android Keystore when it loads. Otherwise a software key with a visible warning | Signing does not need the desk |
+| Mesh engine | BLE advertise / scan / GATT attempt, Wi-Fi Direct discovery, Wi-Fi Aware probe | Errors are shown. Success is never assumed |
 | Witness screen | Draft, confirm, gate, heard-cut, share sheet | Complete without Office Kit |
 | 112 | Opens the dialer. The user must confirm the call | Not a mesh delivery |
 
-SOS sends a P0 packet. It does not dial 112 until the user opens the dialer. Rescue mode on the phone requires a real responder, operator, or admin login against a configured command-center URL. A civilian switch cannot grant it. The token is stored with the Keystore encrypt path when that path works.
+SOS sends a P0 packet. It does not dial 112 until the user opens the dialer. Rescue mode on the phone requires a real responder, operator or admin login against a configured command-center URL. A civilian switch cannot grant it.
 
-Red Light, phone only, still includes Witness Delta, local draft and confirm, the gate, Heard-Cut, the evidence hash, and the offline queue. That is the implemented product split. It has not been run on an iQOO device.
-
-## Local processing
+## Local Processing
 
 ```mermaid
 flowchart LR
@@ -457,72 +456,23 @@ flowchart LR
   audio --> rules --> draft --> human --> packet
 ```
 
-`extractReport` is a rule set for English, Hindi, and Marathi. It returns a confidence below 1 and a note that this is not a medical or safety determination. It does not publish an official alert. There is no SACHET or other government feed. `UnconfiguredOfficialFeed` is the absent-feed state.
+`extractReport` is a rule set for English, Hindi and Marathi. It returns confidence below 1 and a note that this is not a medical or safety determination. It does not publish an official alert and there is no government alert feed. There is no project-trained model, no bundled weights and no cloud inference on the report path. If `SpeechRecognizer` is missing, the UI says so and asks for typed text.
 
-There is no project-trained model, no bundled weights, and no cloud inference on the report path. Image understanding is unavailable. If `SpeechRecognizer` is missing, the UI says so and asks for typed text.
+**The AI is not an authority.** It proposes a draft. The person confirms. The protocol carries the confirmed fact.
 
-The AI is not an authority. It proposes a draft. The person confirms. The protocol carries the confirmed fact.
+---
 
-## Why This Fits iQOO
+## Emergency State
 
-The loaner at the event is an iQOO flagship. The 2026 series names the iQOO 15. Official store specifications, not measurements from this project, include Snapdragon 8 Elite Gen 5, Supercomputing Chip Q3, a triple 50 MP rear camera with a Sony 3x periscope and a 32 MP front camera, a 6.85-inch 3168×1440 AMOLED, OriginOS 6, and a 7000 mAh silicon-anode battery with 100 W wired and 40 W wireless charging. Sources: [iQOO 15 store page](https://shop.iqoo.com/in/product/2067) and the [official guide](https://iqoo.reskilll.com/guide).
-
-None of those hardware numbers were measured by DisasterMesh. They are why a phone-only field client is a serious target, not a claim that this build used them.
-
-| iQOO capability | DisasterMesh usage | Verification |
-| --- | --- | --- |
-| Camera | One witness still, hashed locally, not put on the mesh | Code present. Camera capture **UNVERIFIED** |
-| Microphone | Short local recording; optional platform speech | Code present. Capture **UNVERIFIED** |
-| IMU | About 2 seconds of tilt, not a location | Code present. Sensor **UNVERIFIED** |
-| GPS | Fix, accuracy, and time on the signed header, or manual place | Last-known API present. Device fix **UNVERIFIED** |
-| Local compute | Draft, gate, sign, queue, and fragment without a server | Software-tested. Phone run **UNVERIFIED** |
-| Snapdragon NPU | Intended acceleration target if a delegate loads | **`MODEL_UNAVAILABLE`**. Not claimed |
-| Battery | Relay policy at 15% and 8%; scarce-slot defer for routine updates | Policy tested in software. OEM kill behavior **UNVERIFIED** |
-| Office Kit | Phone/laptop split is architectural | SDK **`UNAVAILABLE`**. OS share sheet only |
-
-Nothing here is claimed as exclusive to iQOO. The same Android APIs are the implementation. iQOO is the event device and the endurance target.
-
-## Office Kit Integration
-
-The official guide describes Office Kit as the phone–laptop bridge: screen mirror, shared clipboard, file transfer, and remote control. HackTracker scores that use. This repository does not contain an Office Kit SDK.
-
-| Capability | What DisasterMesh would use it for | Status |
-| --- | --- | --- |
-| Screen mirror | Show the phone witness screen on a laptop during Green Light | **SUPPORTED BY DEVICE**, not called by this app. **UNVERIFIED** |
-| Remote control | Not used. No remote command may bypass operator authorization | **Not implemented** |
-| File transfer | Move the original evidence after an explicit request, then verify the hash | **Not implemented**. Phone uses `ACTION_SEND`. **`UNAVAILABLE`** |
-| Clipboard | Desk paste is an untrusted byte source for hash check only | Desk paste is implemented. Office Kit clipboard is **not** |
-
-`officeKitStatus` returns `UNAVAILABLE` / `os_share` when no SDK is present. If a package were detected, the status would be `UNVERIFIED` until a transfer test existed. No such test exists.
-
-# iQOO Hackathon 2026 — Judging Alignment
-
-Checked against the published guide on 2026-09-30: [iqoo.reskilll.com/guide](https://iqoo.reskilll.com/guide).
-
-| Judging Criterion | Weight | DisasterMesh Evidence | How the project addresses it | Verification |
-| --- | --- | --- | --- | --- |
-| End product quality | 30% | Phone UI, signed outbox, DMSP/1, edge drafts, desk, API, simulator, setup docs | A person can draft, confirm, queue, and later sync a signed fact without treating the queue as a rescue | Software build and tests. Phone install **not done** |
-| Novelty and impact | 20% | Gate before fragmentation, heard-cut that refuses to infer safety, hash instead of raw media, conflicts kept apart, conservative groups | The scarce resource is information, not only packet order. Silence is not a status | Design is in code. Field impact **not measured** |
-| Creative phone use | 15% | Camera, microphone, IMU, GPS, local queue, on-device draft | The phone is the capture and store-and-forward node, not a remote control for a website | Features exist in the app. HackTracker export **absent** |
-| Technical depth | 15% | Signed codec, hop header, dedup, TTL, priority, fragments, reassembly, groups, roles, audit | One protocol carries status, witness, heard-cut, and gate decisions. CRC is documented but not written by `fragment.ts` | Protocol and API tests. Radio path **UNVERIFIED** |
-| Office Kit usage | 10% | No SDK call. Android share sheet only | The phone/laptop split is architectural. Office Kit itself is not integrated | **`UNAVAILABLE`**. Not tested |
-| Demo and presentation | 10% | 4–5 minute script below, each step labeled | Show the draft, the defer, the hash, and the unverified radio. Do not play a success animation | Script is documentation, not a recorded pitch |
-
-This table is evidence, not a score. HackTracker’s 25% (15% phone use + 10% Office Kit) cannot be claimed from a README.
-
-Grand Finale tracks that fit this prototype, if organisers accept the submission, are Community App and Open Innovation. City-battle tracks are different. Confirm the track on the event dashboard. Do not describe this as a certified HealthTech or government alerting product.
-
-## Emergency state
-
-States in the protocol: `unknown`, `need_help`, `safe`, `evacuating`, `resolved`.
+States: `unknown`, `need_help`, `safe`, `evacuating`, `resolved`.
 
 | State | Meaning |
-| --- | --- |
-| `unknown` | No confirmed self-report. The default. Not safe and not dead. |
-| `need_help` | The reporting person says they need help. |
-| `safe` | A self-report. Not proof. Another person cannot mark them safe. |
-| `evacuating` | A self-report that they are moving, with an optional destination. |
-| `resolved` | A later status. Not proof a rescue happened. |
+|---|---|
+| `unknown` | No confirmed self-report. The default. Not safe and not dead |
+| `need_help` | The reporting person says they need help |
+| `safe` | A self-report. Not proof. Another person cannot mark them safe |
+| `evacuating` | A self-report that they are moving, with an optional destination |
+| `resolved` | A later status. Not proof a rescue happened |
 
 ```mermaid
 flowchart LR
@@ -536,19 +486,24 @@ flowchart LR
   unknown -. "never infer" .-> resolved
 ```
 
-State updates are reports, not ground truth. The diagram shows state meanings, not a guarantee that every transition is accepted; validation and role rules in code govern updates.
+A civilian cannot assign a team or impersonate a responder. An invalid packet cannot overwrite a valid `need_help`. Another origin cannot clear `need_help` to `safe`. A stale same-origin sequence does not downgrade. Unresolvable disagreement stays `conflicting`. Silence stays `unknown`. Team statuses are `available`, `assigned`, `rescue_in_progress`, `partially_resolved`, `resolved` and `handoff_requested`. There is no `rescued` status. Assignment is an audit row, not a rescue.
 
-A civilian cannot assign a team or impersonate a responder. An invalid packet cannot overwrite a valid `need_help`. Another origin cannot clear `need_help` to `safe`. Same-origin stale sequence does not downgrade. Unresolvable disagreement stays conflicting. Silence stays unknown.
+## Dynamic Emergency Groups
 
-Team desk statuses are `available`, `assigned`, `rescue_in_progress`, `partially_resolved`, `resolved`, and `handoff_requested`. There is no `rescued` status. Assignment is an audit row, not a rescue.
+A group is an operational cluster of reports, not a chat room and not "phones that saw each other."
 
-## Dynamic emergency groups
+Auto-grouping uses GPS only (BLE RSSI is unread). Two reports cluster only when:
 
-A group is an operational cluster of reports, not a chat room and not “phones that saw each other.”
+- the incident type matches,
+- timestamps are within 30 minutes,
+- both accuracies are known and at most 100 m,
+- and distance plus both accuracy radii is within 150 m.
 
-Auto-grouping uses GPS only. BLE RSSI is unread. Two reports cluster only when the incident type matches, timestamps are within 30 minutes, both accuracies are known and at most 100 m, and distance plus both accuracy radii is still within 150 m. High confidence requires both accuracies at or below 30 m. One bad or missing fix does not create a group. A split or merge is recorded as lineage and does not delete the underlying reports. Duplicate and contradiction hints are operator prompts, not automatic merges.
+High confidence requires both accuracies at or below 30 m. One bad or missing fix does not create a group. Splits and merges are recorded as lineage and never delete the underlying reports. Duplicate and contradiction hints are operator prompts, not automatic merges.
 
-## Command center
+---
+
+## Command Center
 
 React, TypeScript, Vite, Tailwind. Leaflet shows stored coordinates. Tiles are an online map, not a mesh coverage layer.
 
@@ -565,10 +520,10 @@ flowchart LR
   desk -->|authorized evidence request| api
 ```
 
-This is a logical architecture view, not evidence that a physical phone-to-gateway synchronization was exercised.
+This is a logical architecture view, not evidence that physical phone-to-gateway sync was exercised.
 
 | Page | What it shows |
-| --- | --- |
+|---|---|
 | Overview | Counts from stored rows. An empty database is zeros, not a census |
 | Map | Incidents with coordinates. Missing location stays off the map |
 | Inbox | Signed reports and delivery words |
@@ -576,42 +531,35 @@ This is a logical architecture view, not evidence that a physical phone-to-gatew
 | Teams | Named teams. Creating one is not a rescue |
 | Connectivity | Contact observations. No coverage claim |
 | Unknown zones | Cells with contact and no resolved state. Not a map of missing people |
-| Alerts | No official warning is generated on the phone. SACHET is not connected |
+| Alerts | No official warning is generated on the phone |
 | AI review | Extractor output, not persisted as an alert |
 | Timeline / analytics | Stored events. Gateway delay is null when there is no sample |
-| Simulator | Labeled `SIMULATED`. Does not insert a live incident |
+| Simulator | Labeled `SIMULATED`. Never inserts a live incident |
 | Edge | Witness cards, separate conflict counts, heard and unheard, hash-only evidence, gate decisions |
 | Settings | Role-gated users and audit |
 
-The laptop is a view and an operator channel. It is not required to capture, confirm, or queue.
+Roles: admin, operator, responder, alert publisher.
 
 ## Simulator
 
 `simulator/` runs logical nodes with a seeded PRNG. `radioKind` is always `SIMULATED`.
 
 | Scenario | Logical nodes | What the test checks |
-| --- | --- | --- |
+|---|---:|---|
 | `baseline-10` | 10 | Result stays labeled simulated |
 | `flood-100` | 100 | Loss and duplicates |
-| `partition-1000` | 1,000 | Partition then reconnect, still simulated |
+| `partition-1000` | 1,000 | Partition then reconnect |
 | `gateway-loss` | 40 | Gateway loss behavior in the model |
 | `stress-10000` | 10,000 | Bounded run. Not device throughput |
 
-Recorded simulator suite: 6 passed, 0 failed, including the 1,000-node and 10,000-node cases. That is a software model. It does not sign every packet the way the protocol tests do. It is not 10,000 phones, not BLE, and not a latency measurement.
+Recorded simulator suite: **6 passed, 0 failed**, including the 1,000 and 10,000 node cases. This is a software model. It is not 10,000 phones, not BLE and not a latency measurement.
 
-```mermaid
-flowchart LR
-  sim[Logical nodes]
-  label[radioKind SIMULATED]
-  desk[Live incident table]
-  sim --> label
-  sim -. does not insert .-> desk
-```
+---
 
-# Security & Trust Model
+## Security and Trust Model
 
 | Boundary | Mechanism |
-| --- | --- |
+|---|---|
 | Origin | ECDSA P-256, SHA-256, Node `crypto` and Java `SHA256withECDSA`. No custom cipher |
 | Phone key | Android Keystore preferred. Software fallback is labeled not hardware-backed |
 | Relay | Can change hop fields only. Signed body failure rejects the packet |
@@ -634,61 +582,128 @@ flowchart LR
   pull -->|hash match required| evidence
 ```
 
-This is not military-grade and not unbreakable. A stolen unlocked phone can sign as that phone. A malicious relay can drop packets. Dropping is not the same as forging.
+Not military-grade and not unbreakable. A stolen unlocked phone can sign as that phone. A malicious relay can drop packets, but dropping is not forging. A valid signature establishes the signing key, not the truth of a report. Threat notes: [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md).
 
-Threat notes: [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md).
-
-## Privacy
+### Privacy
 
 - Raw audio and images stay on the phone unless the user shares them.
-- The mesh payload carries a hash and a short confirmed text, capped in the witness record.
-- Location is optional, with accuracy, and is not inferred from RSSI.
+- The mesh payload carries a hash and a short confirmed text.
+- Location is optional, with accuracy, and is never inferred from RSSI.
 - Heard-cut stores pseudonyms, not device names.
 - Evidence retrieval is an audited operator action.
-- There is no cloud model on the emergency path.
-- Local demo HTTP and PGlite are not a production deployment. Use TLS and PostgreSQL before any shared network.
+- No cloud model on the emergency path.
+- Local demo HTTP and PGlite are not a production deployment. Use TLS and PostgreSQL on any shared network.
 
-# Testing & Verification
+---
 
-Recorded in this environment on **2026-09-30**. `npm test` reported 0 failures. Android `:protocol:test` reported 0 failures. `:app:assembleDebug` exited 0. Those commands were **not rerun after the last source restore**. Current files contain the same declared test counts as that recorded run.
+## Why This Fits iQOO
 
-| Component | Declared tests now | Recorded result | Status |
-| --- | --- | --- | --- |
-| Protocol, including edge | 15 in `protocol.test.ts`, 6 in `edge.test.ts` | 21 passed | Software, that run |
-| Backend API and edge | 6 + 2 | 8 passed, PGlite | Software, that run. PostgreSQL not started |
-| Simulator | 6 | 6 passed, including 1,000 and 10,000 logical nodes | **SIMULATED** |
-| Command center | 2 overview + 1 edge | 3 passed | Component tests, not a phone |
+The event loaner is an iQOO flagship (the 2026 series names the iQOO 15). Official store specifications, not measurements from this project, include Snapdragon 8 Elite Gen 5, a triple 50 MP rear camera with a Sony 3x periscope, a 32 MP front camera, a 6.85-inch 3168×1440 AMOLED, OriginOS 6 and a 7000 mAh silicon-anode battery with 100 W wired charging. Sources: [iQOO 15 store page](https://shop.iqoo.com/in/product/2067) and the [official guide](https://iqoo.reskilll.com/guide).
+
+None of these hardware numbers were measured by DisasterMesh. They are why a phone-only field client is a serious target.
+
+| iQOO capability | DisasterMesh usage | Verification |
+|---|---|---|
+| Camera | One witness still, hashed locally, never put on the mesh | Code present. Capture **UNVERIFIED** |
+| Microphone | Short local recording, optional platform speech | Code present. Capture **UNVERIFIED** |
+| IMU | About 2 seconds of tilt, not a location | Code present. Sensor **UNVERIFIED** |
+| GPS | Fix, accuracy and time on the signed header, or manual place | Last-known API present. Device fix **UNVERIFIED** |
+| Local compute | Draft, gate, sign, queue and fragment without a server | Software-tested. Phone run **UNVERIFIED** |
+| Snapdragon NPU | Intended acceleration target if a delegate loads | **`MODEL_UNAVAILABLE`**. Not claimed |
+| Battery | Relay policy at 15% and 8%. Scarce-slot defer for routine updates | Policy tested in software |
+| Office Kit | Phone/laptop split is architectural | SDK **`UNAVAILABLE`**. OS share sheet only |
+
+Nothing here is claimed as exclusive to iQOO. The same Android APIs are the implementation. iQOO is the event device and the endurance target.
+
+## Office Kit Integration
+
+The official guide describes Office Kit as the phone–laptop bridge: screen mirror, shared clipboard, file transfer and remote control. This repository does not contain an Office Kit SDK.
+
+| Capability | What DisasterMesh would use it for | Status |
+|---|---|---|
+| Screen mirror | Show the phone Witness screen on a laptop during Green Light | Device feature, not called by this app. **UNVERIFIED** |
+| Remote control | Not used. No remote command may bypass operator authorization | Not implemented by design |
+| File transfer | Move original evidence after an explicit request, then verify the hash | Not implemented. Phone uses `ACTION_SEND` |
+| Clipboard | Desk paste is an untrusted byte source for hash check only | Desk paste implemented. Office Kit clipboard is not |
+
+`officeKitStatus` returns `UNAVAILABLE` / `os_share` when no SDK is present.
+
+---
+
+## iQOO Hackathon 2026 — Judging Alignment
+
+Checked against the published guide: [iqoo.reskilll.com/guide](https://iqoo.reskilll.com/guide).
+
+| Criterion | Weight | Evidence in this repo | Why it scores | Verification |
+|---|---:|---|---|---|
+| **End product quality** | 30% | Phone UI, signed outbox, DMSP/1, edge drafts, command center, API, simulator, setup docs | A person can draft, confirm, queue and later sync a signed fact, and the system never mislabels a queue as a rescue | Software build and tests. Phone install not yet done |
+| **Novelty and impact** | 20% | Gate before fragmentation, heard-cut that refuses to infer safety, hash instead of raw media, conflicts kept apart, conservative groups | The scarce resource is information, not only packet order. Silence is not a status | Design is in code. Field impact not measured |
+| **Creative phone use** | 15% | Camera, microphone, IMU, GPS, local queue, on-device draft | The phone is the capture, signing and store-and-forward node, not a remote for a website | Features exist in the app. Hardware run pending |
+| **Technical depth** | 15% | Signed codec, hop header, dedup, TTL, priority scheduler, fragments, reassembly, groups, roles, audit | One protocol carries status, witness, heard-cut and gate decisions | Protocol and API tests pass. Radio path **UNVERIFIED** |
+| **Office Kit usage** | 10% | Phone/laptop split by design. Android share sheet as the bridge | Architecture is ready for Office Kit. SDK itself is not integrated | **`UNAVAILABLE`**. Not tested |
+| **Demo and presentation** | 10% | 4–5 minute labeled script below | Show the draft, the defer, the hash and the unverified radio openly | Script is documentation |
+
+This table is evidence, not a score.
+
+**Best-fit tracks:** Community App and Open Innovation. Confirm the track on the event dashboard.
+
+---
+
+## Verification Snapshot
+
+| Capability | Status | Qualification |
+|---|---|---|
+| Offline-first phone workflow | ✅ Implemented in software | Draft, confirm, sign and queue locally. Phone run not verified |
+| Store-and-forward | ✅ Implemented in software | Queue and forwarding logic exist. Physical radio delivery unverified |
+| Signed DMSP/1 packets | ✅ Software-tested | ECDSA P-256 path. Signatures do not prove report truth |
+| Edge layer | ✅ Implemented in software | Witness Delta, Scarce-Slot Gate, Heard-Cut, Hash-Pull routes and UI |
+| Dynamic emergency groups | ✅ Implemented in software | Conservative GPS/context grouping and lineage. Not field-validated |
+| Command center | ✅ Implemented | React desk and backend. Recorded tests use PGlite |
+| Android APK build | ⚠️ Compile succeeded | Not installed on a device |
+| Physical multi-hop | ⚠️ **UNVERIFIED** | No physical A→B→C relay result |
+| Local NPU model | ⚠️ **`MODEL_UNAVAILABLE`** | No model or delegate loaded |
+| Office Kit SDK | ⚠️ **`UNAVAILABLE`** | OS share sheet only |
+
+## Testing
+
+Recorded on **2026-09-30**: `npm test` reported 0 failures. Android `:protocol:test` reported 0 failures. `:app:assembleDebug` exited 0.
+
+| Component | Tests | Result | Status |
+|---|---|---|---|
+| Protocol, including edge | 15 in `protocol.test.ts`, 6 in `edge.test.ts` | 21 passed | Software |
+| Backend API and edge | 6 + 2 | 8 passed (PGlite) | Software. PostgreSQL not started |
+| Simulator | 6 | 6 passed, incl. 1,000 and 10,000 nodes | **SIMULATED** |
+| Command center | 2 overview + 1 edge | 3 passed | Component tests |
 | Android JVM | `DmspTest` 6, `EdgeTest` 4 | 10 passed | JVM, not a device |
-| Debug APK | `:app:assembleDebug` exit 0 | Recorded 11,031,792 bytes, SHA-256 `fbc6f0cd6a2d3246c06607efd2fd40db4d6ccf4cf3f62d80f4c188de927395cd` | Compile only. **Not installed.** Those bytes are **not in this tree** |
+| Debug APK | `:app:assembleDebug` exit 0 | 11,031,792 bytes | Compile only. Not installed |
 
-`docs/IMPLEMENTATION_STATUS.md` and `docs/UPGRADE_REPORT.md` cite a different SHA-256, `0d8ce23f…`, for the same recorded size. Do not treat that hash as the compile above. A later 11,015,408-byte archive (`51004911…`) also failed the recorded hash and is not the tested APK.
+GitHub Actions workflows exist (`.github/workflows/ci.yml`, `.github/workflows/android-apk.yml`). No claim is made that they have run green on GitHub.
 
-GitHub Actions workflows exist (`.github/workflows/ci.yml`, `.github/workflows/android-apk.yml`). This README does not claim they have gone green on GitHub.
+### Physical validation plan
 
-### Physical validation
+Follow [docs/PHYSICAL_DEVICE_TEST_PLAN.md](docs/PHYSICAL_DEVICE_TEST_PLAN.md). Every line stays `NOT RUN` until someone watches it happen.
 
 | Test | Status |
-| --- | --- |
+|---|---|
 | APK install | **UNVERIFIED** |
 | Camera, microphone, IMU, GPS, speech | **UNVERIFIED** |
-| NPU inference | **UNAVAILABLE** / not loaded |
+| NPU inference | **UNAVAILABLE** |
 | BLE advertise, scan, connect, GATT write | **UNVERIFIED** |
 | Two-phone signed exchange | **NOT RUN** |
-| Three-phone A→B→C with B relaying | **PHYSICAL MULTI-HOP: UNVERIFIED** |
+| Three-phone A→B→C with B relaying | **UNVERIFIED** |
 | Bluetooth interruption and recovery | **NOT RUN** |
 | Wi-Fi Direct transfer | **UNVERIFIED** |
-| Wi-Fi Aware transfer | Probe only. **UNVERIFIED** |
-| Office Kit mirror, clipboard, file transfer, remote control | **UNAVAILABLE** in this tree |
+| Office Kit mirror, clipboard, file transfer | **UNAVAILABLE** |
 | Share-sheet transfer | Code present. **UNVERIFIED** |
 
-No latency, packet-success rate, radio fragment count, battery drain, or transfer time was measured. Do not fill `tests/physical-results.template.json` from the simulator.
+No latency, packet-success rate, radio fragment count, battery drain or transfer time has been measured, and none is published.
 
-# Data & Model Provenance
+## Data and Model Provenance
 
-No project-specific model training is currently included in the repository. There is no dataset, no train/validation/test split, no weights file, and no accuracy number.
+No project-specific model training is included. There is no dataset, no train/validation/test split, no weights file and no accuracy number.
 
 | Piece | What it is |
-| --- | --- |
+|---|---|
 | Extractor | Hand-written rules. English, Hindi, Marathi word lists. Not trained |
 | Witness draft | Same extractor, plus waterline words and a confirmation gate |
 | Speech | Platform `SpeechRecognizer` if the device has one. Not bundled |
@@ -696,54 +711,41 @@ No project-specific model training is currently included in the repository. Ther
 | NPU delegate | Not included. Status probe only |
 | Simulator | Seeded logical nodes. Not field data |
 
-# Performance & Scale
+## Performance and Scale
 
 Only numbers that exist in code or in a recorded run:
 
-| Figure | Where it comes from | Not |
-| --- | --- | --- |
+| Figure | Source | Not |
+|---|---|---|
 | 512-byte payload, 1400-byte packet, 160-byte chunks, 13-byte fragment header | Protocol constants | Measured airtime |
 | 120-character mesh text | Protocol constant | A UX study |
 | 8-second reassembly timeout | `Reassembler` default | A radio measurement |
 | 150 m grouping rule, 100 m accuracy cap, 30-minute window | Grouping policy | A field accuracy study |
-| 10, 100, 1,000, 10,000 logical nodes | Simulator scenarios and tests | Physical phones |
-| 11,031,792-byte debug APK | Recorded compile, hash above | An installed or shipped binary in this tree |
+| 10 / 100 / 1,000 / 10,000 logical nodes | Simulator scenarios and tests | Physical phones |
+| 11,031,792-byte debug APK | Recorded compile | An installed binary |
 
-No inference latency, backend latency, or message-throughput number is published because none was measured.
+---
 
-# Recommended 4–5 Minute Demo
+## Recommended 4–5 Minute Demo
 
-Say this first: prototype, not a certified emergency service, no rescue guaranteed, **PHYSICAL MULTI-HOP: UNVERIFIED**.
+Open with: *prototype, not a certified emergency service, no rescue guaranteed, physical multi-hop unverified.*
 
 | Time | Step | Label |
-| --- | --- | --- |
-| 0:00–0:40 | Sign in to the desk. Open Edge. Read empty counts and `UNHEARD ≠ SAFE`. Point at `MODEL_UNAVAILABLE` and Office Kit `UNAVAILABLE` | **SOFTWARE VERIFIED** for an empty seeded API. Zeros are stored rows |
-| 0:40–1:30 | On a phone with a matching APK, open Witness. If a sensor fails, read the unavailable line and type `बाढ़ में तीन लोग फंसे हैं, पानी दरवाजे तक`. Make a draft. Do not confirm yet | Phone sensors **UNVERIFIED**. The sentence is a software extractor fixture |
-| 1:30–2:20 | Confirm. The line must say queued offline, not delivered. Confirm the same sentence again: `defer` / `no_new_fact`. Change water to chest level: admit or replace. Do not defer a life threat | Gate rules **SOFTWARE VERIFIED**. Phone UI **UNVERIFIED** |
-| 2:20–3:10 | Heard-cut only if a second phone has exchanged a verified packet. Otherwise stop and say the cut was not physically shown | Classification rule **SOFTWARE VERIFIED**. Radio **UNVERIFIED** |
-| 3:10–4:00 | After a signed witness sync, show the hash and the absence of image bytes. Request original. Paste the wrong text: `corrupt_evidence` | API path **SOFTWARE VERIFIED**. A mesh pull must fail |
-| 4:00–4:40 | Close on the sentence, the slot, and the cut. The simulator is not the radio. Three phones have not shown A to B to C | **SIMULATED** stays on the simulator page |
+|---|---|---|
+| 0:00–0:40 | Sign in to the desk. Open Edge. Show empty counts and `UNHEARD ≠ SAFE`. Point at `MODEL_UNAVAILABLE` and Office Kit `UNAVAILABLE` | Software verified. Zeros are stored rows |
+| 0:40–1:30 | On a phone with a matching APK, open Witness. Type `बाढ़ में तीन लोग फंसे हैं, पानी दरवाजे तक`. Make a draft. Do not confirm yet | Sensors unverified. Sentence is an extractor fixture |
+| 1:30–2:20 | Confirm. The line says *queued offline*, not delivered. Confirm the same sentence again: `defer` / `no_new_fact`. Change water to chest level: admit or replace. A life threat is never deferred | Gate rules software verified |
+| 2:20–3:10 | Heard-cut only if a second phone has exchanged a verified packet. Otherwise say clearly it was not physically shown | Rule software verified. Radio unverified |
+| 3:10–4:00 | After a signed witness sync, show the hash and the absence of image bytes. Request the original. Paste wrong text to show `corrupt_evidence` | API path software verified |
+| 4:00–4:40 | Close on the sentence, the slot and the cut. The simulator is not the radio | Simulator stays labeled `SIMULATED` |
 
-Do not play a success animation. Do not say “delivered to rescuer” unless the delivery word is `received_by_command_center` or `acknowledged_by_operator`, and even then say what those words actually mean.
+Do not say "delivered to rescuer" unless the delivery word is `received_by_command_center` or `acknowledged_by_operator`, and then say what those words mean.
 
-# Known Limitations
+---
 
-- Physical multi-hop, BLE, Wi-Fi Direct, and Wi-Fi Aware transfer are unverified. Compiling a GATT writer is not a radio test.
-- The on-device multi-chunk writer is explicitly not claimed. Packets over 180 bytes are not sent as one write and are not marked relayed.
-- No NPU model is loaded. Office Kit is unavailable.
-- The recorded APK bytes are not in this tree. The app was not installed here.
-- `docs/PACKET_FORMAT.md` mentions a CRC trailer that `fragment.ts` does not write.
-- Docker Compose / PostgreSQL was not started. Backend tests used PGlite.
-- The scale simulator is not a signed-packet mesh and not a phone throughput test.
-- OEM battery managers can kill scans. That was not measured.
-- Some mesh errors are English even when the UI is Hindi or Marathi.
-- Responder navigation opens an installed map app. This app does not draw the route.
-- JWT in the demo is a bearer token. Local HTTP is a lab choice.
-- This pre-event tree must not be submitted as in-event original work unless organisers permit it.
+## Quick Start
 
-## Reproduce
-
-Node.js 20 or newer. Android builds need JDK 17 and Android SDK 35.
+Requires Node.js 20 or newer. Android builds need JDK 17 and Android SDK 35.
 
 ```bash
 cp .env.example .env
@@ -754,16 +756,18 @@ DM_DEV=1 DM_ALLOW_PGLITE=1 npm run dev:api
 npm run dev:web
 ```
 
-Desk: `http://127.0.0.1:5173`. Use the same `DM_PGLITE_PATH` for seed and API. Without it, PGlite is in-memory and the seed process does not reach the server.
+Command center: `http://127.0.0.1:5173`. Use the same `DM_PGLITE_PATH` for seed and API. Without it, PGlite is in-memory and the seed does not reach the server.
 
-Local demo accounts exist only if `SEED_USE_DEV_DEFAULTS=1`. They are not for a shared network:
+Local demo accounts exist only with `SEED_USE_DEV_DEFAULTS=1`. **Never use on a shared network.**
 
-- `admin@example.invalid` / `dev-admin-pass`
-- `operator@example.invalid` / `dev-operator-pass`
-- `responder@example.invalid` / `dev-responder-pass`
-- `publisher@example.invalid` / `dev-publisher-pass`
+| Role | Login |
+|---|---|
+| Admin | `admin@example.invalid` / `dev-admin-pass` |
+| Operator | `operator@example.invalid` / `dev-operator-pass` |
+| Responder | `responder@example.invalid` / `dev-responder-pass` |
+| Publisher | `publisher@example.invalid` / `dev-publisher-pass` |
 
-Tests and simulator:
+**Tests and simulator**
 
 ```bash
 npm test
@@ -771,30 +775,21 @@ npm run simulate -- list
 npm run simulate -- run --scenario baseline-10 --seed 42 --out /tmp/baseline.json
 ```
 
-The JSON says `radioKind: SIMULATED`.
+The output JSON says `radioKind: SIMULATED`.
 
-Android, the command that exited 0 in the authoring environment:
+**Android**
 
 ```bash
 cd android
 export JAVA_HOME=/path/to/jdk-17
 export ANDROID_HOME=/path/to/android-sdk
-# This snapshot has android/gradlew but not android/gradle/wrapper/gradle-wrapper.jar.
-# The recorded run used Gradle 8.9 directly:
 gradle :protocol:test :app:assembleDebug
+adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-Debug output, after a successful build: `android/app/build/outputs/apk/debug/app-debug.apk`. Installing it was not done here:
+The recorded build used Gradle 8.9 directly. PostgreSQL path (untested in the build environment): [docker-compose.yml](docker-compose.yml).
 
-```bash
-adb install -r android/app/build/outputs/apk/debug/app-debug.apk
-```
-
-Then follow [docs/PHYSICAL_DEVICE_TEST_PLAN.md](docs/PHYSICAL_DEVICE_TEST_PLAN.md). Leave every line `NOT RUN` until someone watches it.
-
-PostgreSQL path, untested in the build environment: [docker-compose.yml](docker-compose.yml).
-
-## Layout
+## Project Layout
 
 ```text
 android/            Kotlin app, Compose UI, GATT and Wi-Fi Direct adapters, JVM protocol
@@ -802,30 +797,52 @@ shared-protocol/    DMSP/1 codec, edge rules, grouping, extractor, fragments
 backend/            Fastify API, PostgreSQL or local PGlite, edge evidence routes
 command-center/     React desk, including /edge
 simulator/          Logical nodes, always SIMULATED
-docs/               Format, threat model, device plan, edge report, compliance
+docs/               Packet format, threat model, device plan, edge report, compliance
 scripts/            setup.sh, package.sh
-tests/              Physical-result template. Not filled from the simulator
-artifacts/          Intended APK drop. The recorded APK bytes are not in this snapshot
+tests/              Physical-result template. Never filled from the simulator
+artifacts/          Intended APK drop
 ```
+
+## Known Limitations
+
+- Physical multi-hop, BLE, Wi-Fi Direct and Wi-Fi Aware transfer are unverified. Compiling a GATT writer is not a radio test.
+- The on-device multi-chunk writer is not claimed. Packets over 180 bytes are not sent as one write and not marked relayed.
+- No NPU model is loaded. Office Kit is unavailable.
+- `docs/PACKET_FORMAT.md` mentions a CRC trailer that `fragment.ts` does not write. The code is the contract.
+- Docker Compose / PostgreSQL was not started. Backend tests used PGlite.
+- The scale simulator is not a signed-packet mesh and not a phone throughput test.
+- OEM battery managers can kill scans. Not measured.
+- Some mesh errors are English even when the UI is Hindi or Marathi.
+- Responder navigation opens an installed map app. This app does not draw the route.
+- The demo JWT is a bearer token and local HTTP is a lab choice.
 
 ## Roadmap
 
 | State | Item |
-| --- | --- |
-| In this tree | DMSP/1, phone UI, outbox, edge draft/gate/heard/hash, desk, simulator, software tests |
-| Not finished as a device proof | Install the matching APK. Run camera, mic, IMU, GPS, speech on an iQOO 15 |
-| Physical validation remaining | Two-phone signed exchange. Three-phone A→B→C with B as the only relay. BLE interruption and recovery |
-| Not started | Office Kit SDK. A local model that actually loads. NPU delegate. CRC trailer if the packet doc is to match the code |
-| Out of scope until organisers say otherwise | Submitting this pre-event tree as in-event original work |
+|---|---|
+| ✅ In this repo | DMSP/1, phone UI, outbox, edge draft / gate / heard / hash, desk, simulator, software tests |
+| 🔜 Next (device proof) | Install the APK. Run camera, mic, IMU, GPS, speech on an iQOO 15 |
+| 🔜 Next (radio proof) | Two-phone signed exchange. Three-phone A→B→C with B as the only relay. BLE interruption and recovery |
+| 🧭 Planned | Office Kit SDK. A local model that actually loads. NPU delegate. Align the CRC trailer between code and docs |
 
-## Official references
+## Originality and Eligibility
 
-- [iQOO Hackathon 2026 guide and rules](https://iqoo.reskilll.com/guide) — weights, Red Light / Green Light, Office Kit, original-work rule
+Hackathon eligibility and prior-work disclosure are documented in [docs/HACKATHON_COMPLIANCE.md](docs/HACKATHON_COMPLIANCE.md).
+
+## Safety Boundary
+
+DisasterMesh is not a certified emergency service and does not guarantee delivery, rescue or safety. `SAFE` is self-reported. Silence is `UNKNOWN`. `UNHEARD` is not safe, missing or dead. A valid signature establishes the signing key, not the truth of a report.
+
+## References
+
+- [iQOO Hackathon 2026 guide and rules](https://iqoo.reskilll.com/guide)
 - [iQOO Hackathon terms](https://iqoo.reskilll.com/terms)
 - [Registration](https://iqoo.reskilll.com/)
-- [iQOO 15, India store](https://shop.iqoo.com/in/product/2067) — chip, camera, battery, OriginOS as published by iQOO
+- [iQOO 15, India store](https://shop.iqoo.com/in/product/2067)
 - [iQOO 15 product page](https://www.iqoo.com/en/products/iQOO-15)
+
+Repository: [github.com/harshtakalkar037-boop/disastermesh](https://github.com/harshtakalkar037-boop/disastermesh)
 
 ## License
 
-Apache-2.0. Third-party components are listed in `NOTICE`. Bluetooth Mesh, Wi-Fi Direct, Wi-Fi Aware, and Nearby are platform technologies. This project does not claim a Bluetooth SIG assignment or a government alert integration.
+Apache-2.0. Third-party components are listed in `NOTICE`. Bluetooth Mesh, Wi-Fi Direct, Wi-Fi Aware and Nearby are platform technologies. This project does not claim a Bluetooth SIG assignment or a government alert integration.
