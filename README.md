@@ -1,27 +1,134 @@
 # DisasterMesh
 
-### When the network dies, the phones become the network.
+## When the network dies, the phones become the network.
 
-![protocol](https://img.shields.io/badge/protocol-DMSP%2F1-1f2933)
-![android](https://img.shields.io/badge/Android-minSdk%2026-3DDC84)
-![node](https://img.shields.io/badge/Node.js-20%2B-339933)
-![kotlin](https://img.shields.io/badge/phone-Kotlin%20%2F%20Compose-7F52FF)
-![status](https://img.shields.io/badge/physical%20multi--hop-UNVERIFIED-b45309)
+**DisasterMesh is a phone-first, offline-oriented disaster reporting prototype.** A witness creates a bounded local observation, confirms it, and signs a compact DMSP/1 packet. The phone queues that packet for a possible peer or gateway; forwarding is store-and-forward, not a delivery guarantee. Structured facts and evidence hashes travel in the protocol, while original media remains local until an explicit authorized request.
 
-DisasterMesh is an offline-first disaster reporting prototype. A phone turns a local observation into a bounded draft, waits for the person who saw it to confirm, signs a compact DMSP/1 packet, and keeps that packet until a nearby phone or a command center can take it. The mesh carries the structured fact and an evidence hash. The original audio or still stays on the phone.
+The system combines an Android client, an application-layer mesh path, a backend and command-center view, conservative emergency grouping, and an edge layer for witness drafts, scarce-slot admission, connectivity observations, and hash-based evidence retrieval. **Physical phone-to-phone multi-hop, NPU inference, and Office Kit integration are not verified/available in this tree.**
 
-This is not a certified emergency service. It does not guarantee delivery, rescue, or safety. `SAFE` is a self-report. Silence is `UNKNOWN`. `UNHEARD` is not safe, missing, or dead. A valid signature means the packet came from that key, not that the report is true.
+> **Safety boundary:** This is not a certified emergency service. It does not guarantee delivery, rescue, or safety. `SAFE` is self-reported; silence is `UNKNOWN`; `UNHEARD` is not safe, missing, or dead. A valid signature establishes the signing key, not the truth of a report.
 
-> **Pre-event tree.** The published iQOO Hackathon 2026 guide says original work must be written during the event window and that a completed app must not be shipped in. Do not submit this repository as in-event work unless the organisers allow prior work. See [docs/HACKATHON_COMPLIANCE.md](docs/HACKATHON_COMPLIANCE.md).
+> **Hackathon eligibility:** The published iQOO Hackathon 2026 guide says original work must be written during the event window and a completed app must not be shipped in. Do not submit this repository as in-event work unless organisers allow prior work. See [docs/HACKATHON_COMPLIANCE.md](docs/HACKATHON_COMPLIANCE.md).
 
 Repository: [github.com/harshtakalkar037-boop/disastermesh](https://github.com/harshtakalkar037-boop/disastermesh)
+
+### Capability snapshot
+
+| Capability | Status | What that status means |
+|---|---|---|
+| Offline-first phone workflow | ✅ Implemented in software | Draft, confirm, sign, and queue locally; device run not verified |
+| Store-and-forward | ✅ Implemented in software | Queue and forwarding logic exist; physical radio delivery unverified |
+| Signed DMSP/1 packets | ✅ Implemented and software-tested | ECDSA P-256 signed packet path; signature does not prove report truth |
+| Edge layer | ✅ Implemented in software | Witness Delta, Scarce-Slot Gate, Heard-Cut, Hash-Pull routes/UI |
+| Dynamic emergency groups | ✅ Implemented in software | Conservative GPS/context grouping and lineage; not field-validated |
+| Command center | ✅ Implemented | React desk and backend; demo tests use PGlite |
+| Android APK build | ⚠️ Recorded compile succeeded | APK was not installed; recorded bytes are not present in this tree |
+| Physical multi-hop | ⚠️ UNVERIFIED | No physical A→B→C relay result |
+| Local NPU model | ⚠️ `MODEL_UNAVAILABLE` | No model/delegate is currently loaded or bundled |
+| Office Kit SDK | ⚠️ `UNAVAILABLE` | OS share-sheet path only; no Office Kit integration |
+
+![DMSP/1](https://img.shields.io/badge/protocol-DMSP%2F1-1f2933)
+![Android](https://img.shields.io/badge/Android-minSdk%2026-3DDC84)
+![Kotlin](https://img.shields.io/badge/Kotlin-Compose-7F52FF)
+![Node.js](https://img.shields.io/badge/Node.js-20%2B-339933)
+![Radio status](https://img.shields.io/badge/physical%20multi--hop-UNVERIFIED-b45309)
+
+### System architecture
+
+```mermaid
+flowchart LR
+  subgraph PHONE[PHONE — local-first client]
+    user[Person / witness]
+    sensors[Camera · microphone · IMU · GPS]
+    witness[Witness Delta<br/>bounded local draft]
+    confirm[Human confirmation]
+    gate[Scarce-Slot Gate]
+    dmsp[DMSP/1<br/>validate · sign]
+    fragments[Fragmentation<br/>160-byte chunks]
+    sqlite[(SQLite<br/>outbox + evidence)]
+    user --> sensors --> witness --> confirm --> gate --> dmsp --> fragments --> sqlite
+  end
+
+  subgraph MESH[STORE-AND-FORWARD PATH — radio execution unverified]
+    ble[BLE GATT adapter]
+    wfd[Wi-Fi Direct adapter]
+    a[Phone A]
+    b[Phone B<br/>conditional relay]
+    c[Phone C<br/>conditional relay]
+    heard[Heard-Cut<br/>signed digest]
+    sqlite --> ble
+    sqlite --> wfd
+    ble -. "if radio exchange succeeds" .-> a
+    a -. "UNVERIFIED" .-> b
+    b -. "UNVERIFIED" .-> c
+    a --> heard
+  end
+
+  subgraph COMMAND[COMMAND CENTER — requires a gateway/network path]
+    gateway[Gateway / sync]
+    backend[Fastify backend]
+    desk[Command center UI]
+    pull[Explicit authorized<br/>Hash-Pull request]
+    gateway --> backend --> desk --> pull
+    c -. "possible path; not physically verified" .-> gateway
+    heard --> backend
+  end
+
+  groups[Emergency groups<br/>GPS/context grouping] --> desk
+  sim[Logical-node simulator<br/>SIMULATED] -. separate from radio .-> desk
+  pull -. "original evidence retrieval path" .-> sqlite
+```
+
+> The protocol fragmentation/reassembly path is software-tested. `fragment.ts` does **not** append the CRC trailer mentioned in `docs/PACKET_FORMAT.md`. Phone A→B→C, gateway recovery over radio, and evidence transfer to a device remain **UNVERIFIED**.
+
+## The Problem
+
+Disaster communication is brittle when it assumes continuous cellular service, a reachable server, ample bandwidth, or a stable picture of who is connected. DisasterMesh is designed around queued reports and partial, changing connectivity—but its radio behavior still needs physical validation.
+
+| Failure condition | Conventional approach | DisasterMesh response |
+|---|---|---|
+| Internet unavailable | Request fails or waits for a server | Local SQLite outbox; report can remain `queued_offline` |
+| Cellular infrastructure down | No server path | BLE GATT / Wi-Fi Direct adapters and store-and-forward logic exist; physical relay is **UNVERIFIED** |
+| Limited radio capacity | Send every update | Scarce-Slot Gate admits, defers, or replaces eligible unsent information before enqueue |
+| Duplicate reports | Repeated traffic | Message-id deduplication and repeat/no-new-fact defer rules |
+| Conflicting reports | Last update may overwrite earlier information | Signed conflicting observations are kept distinct; no averaging of conflicting counts |
+| Large media | Upload the entire file | Compact evidence hash in the report; explicit operator request for original evidence |
+| Connectivity disappears | Treat missing contact as an error or status | Heard-Cut records an observation; `UNHEARD` does not mean `SAFE`, `MISSING`, or `DEAD` |
+| Battery is low | Continue the same relay policy | Software policy: below 8% no relay; below 15% relay only P0/P1, with life-threat admission preserved |
+| Relay is untrusted | Trust the transport path | Signed body prevents undetected report modification; relay can still drop packets |
+
+## The Core Idea
+
+### Conventional emergency path
+
+```text
+Person → Internet → Cloud server → Responder
+```
+
+### DisasterMesh path
+
+```mermaid
+flowchart LR
+  person[Person] --> observation[Local observation]
+  observation --> human[Human confirmation]
+  human --> admission[Scarce-slot admission]
+  admission --> signed[Signed DMSP/1 packet]
+  signed --> fragment[Fragmentation]
+  fragment -. "radio path: UNVERIFIED" .-> peer[Phone-to-phone relay]
+  peer --> reassembly[Reassembly and verification]
+  reassembly --> state[Emergency state / group view]
+  state --> gateway[Gateway recovery, when available]
+  gateway --> desk[Command center]
+```
+
+The differentiator is not simply an SOS button. The phone decides what can be safely expressed as a bounded, user-confirmed fact; admission logic limits what enters a constrained queue; the protocol preserves origin authentication and expiry metadata; and the command center can later display synchronized reports without treating silence as a status.
 
 ## What it is, and what it is not
 
 | This is | This is not |
 | --- | --- |
 | A phone-first store-and-forward client plus a desk that accepts signed packets | A rescue service, a coverage map, or a delivery guarantee |
-| One protocol, DMSP/1, extended with four edge payload types | A second protocol, a chatbot, or a cloud model on the emergency path |
+| One protocol, DMSP/1, extended with edge payload types | A second protocol, a chatbot, or a cloud model on the emergency path |
 | Application-layer forwarding over BLE GATT, with a separate Wi-Fi Direct adapter | Bluetooth Mesh, and not “Wi-Fi Direct is a mesh” |
 | A deterministic English / Hindi / Marathi extractor, with an explicit model slot | A loaded NPU model. Current inference status is `MODEL_UNAVAILABLE` |
 | Software tests, a recorded debug compile, and a labeled simulator | A measured two-phone or three-phone radio result |
@@ -86,6 +193,18 @@ Sensors and text become a bounded draft. The user confirms or edits it before it
 The draft may carry incident type, self-claimed state, people count, language (`en`, `hi`, `mr`), waterline band, optional tilt, confidence strictly below 1, an evidence hash, and an inference status: `NPU`, `CPU_FALLBACK`, or `MODEL_UNAVAILABLE`. Empty text, or an `NPU` label with no named delegate, returns `manual_form_required`. A flood phrase plus a `no_water_cue` marks self-conflict and caps confidence. `official`, assignment, and team id are rejected. The model cannot declare another person safe, emit an official warning, or assign a rescue.
 
 The phone UI can try about 8 seconds of audio, one still, a 2-second accelerometer window, and the last GPS fix. A failed sensor is labeled unavailable. No file, tilt, or transcript is invented. Confirmation hashes the local bytes and puts only the hash in the packet.
+
+```mermaid
+flowchart LR
+  capture[Audio · text · still · IMU · last GPS fix]
+  extract[Local deterministic extraction]
+  bounded[Bounded Witness Delta draft]
+  review[Person reviews and confirms]
+  hash[Hash local evidence]
+  packet[Signed DMSP/1 fact + hash]
+  capture --> extract --> bounded --> review --> hash --> packet
+  review -. "not confirmed: no witness packet" .-> bounded
+```
 
 Current model slot: **`MODEL_UNAVAILABLE`**. No Whisper, sherpa-onnx, or NPU delegate is bundled. `NPU` is returned only if a caller reports that a delegate actually loaded. Device speech, if the platform recognizer returns text, is not labeled `NPU`.
 
@@ -405,6 +524,20 @@ States in the protocol: `unknown`, `need_help`, `safe`, `evacuating`, `resolved`
 | `evacuating` | A self-report that they are moving, with an optional destination. |
 | `resolved` | A later status. Not proof a rescue happened. |
 
+```mermaid
+flowchart LR
+  silence[No confirmed report / silence] --> unknown[UNKNOWN]
+  person[Person's own report] --> help[NEED HELP]
+  person --> safe[SAFE — self-report]
+  person --> evacuating[EVACUATING — self-report]
+  operator[Authorized later update] --> resolved[RESOLVED]
+  unknown -. "never infer" .-> safe
+  unknown -. "never infer" .-> help
+  unknown -. "never infer" .-> resolved
+```
+
+State updates are reports, not ground truth. The diagram shows state meanings, not a guarantee that every transition is accepted; validation and role rules in code govern updates.
+
 A civilian cannot assign a team or impersonate a responder. An invalid packet cannot overwrite a valid `need_help`. Another origin cannot clear `need_help` to `safe`. Same-origin stale sequence does not downgrade. Unresolvable disagreement stays conflicting. Silence stays unknown.
 
 Team desk statuses are `available`, `assigned`, `rescue_in_progress`, `partially_resolved`, `resolved`, and `handoff_requested`. There is no `rescued` status. Assignment is an audit row, not a rescue.
@@ -418,6 +551,21 @@ Auto-grouping uses GPS only. BLE RSSI is unread. Two reports cluster only when t
 ## Command center
 
 React, TypeScript, Vite, Tailwind. Leaflet shows stored coordinates. Tiles are an online map, not a mesh coverage layer.
+
+```mermaid
+flowchart LR
+  phone[Android client<br/>local queue + signed reports]
+  gateway[Gateway / sync when reachable]
+  api[Fastify API<br/>verification · roles · audit · storage]
+  db[(PostgreSQL in deployment<br/>PGlite in recorded tests)]
+  desk[React command center]
+  sim[Simulator<br/>SIMULATED only]
+  phone -->|available sync path| gateway --> api --> db --> desk
+  sim -. labeled simulation; not live incident input .-> desk
+  desk -->|authorized evidence request| api
+```
+
+This is a logical architecture view, not evidence that a physical phone-to-gateway synchronization was exercised.
 
 | Page | What it shows |
 | --- | --- |
@@ -473,6 +621,18 @@ flowchart LR
 | Roles | Admin, operator, responder, alert publisher. Login failure does not reveal whether the account exists |
 | Evidence | SHA-256. Operator-only explicit request. Clipboard cannot carry a command |
 | Privacy of ids | 16-byte origin pseudonym. Heard-cut rejects phone numbers |
+
+```mermaid
+flowchart LR
+  origin[Origin phone + key] -->|ECDSA P-256 signed body| packet[Authenticated packet]
+  relay[Untrusted relay] -->|may forward, delay, duplicate, or drop| packet
+  packet --> verify[Backend verifies signature, bounds, expiry, and message identity]
+  verify -->|valid| desk[Role-gated command center]
+  verify -->|invalid / expired / simulated on live route| reject[Reject or audit]
+  evidence[Local evidence bytes] -->|SHA-256 reference| packet
+  desk -->|explicit authorized request| pull[Hash-Pull / verification path]
+  pull -->|hash match required| evidence
+```
 
 This is not military-grade and not unbreakable. A stolen unlocked phone can sign as that phone. A malicious relay can drop packets. Dropping is not the same as forging.
 
