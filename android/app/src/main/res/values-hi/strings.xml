@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">DisasterMesh</string>
+    <string name="need_help">अभी मदद चाहिए</string>
+    <string name="im_safe">मैं सुरक्षित हूँ</string>
+    <string name="evacuating">निकासी जारी है</string>
+    <string name="report_disaster">आपदा की सूचना दें</string>
+    <string name="find_help">आस-पास मदद खोजें</string>
+    <string name="sos">आपातकालीन SOS</string>
+    <string name="disclaimer">प्रोटोटाइप। प्रमाणित आपातकालीन सेवा नहीं। बचाव की गारंटी नहीं है।</string>
+    <string name="not_reached">यह रिपोर्ट बचाव दल तक नहीं पहुँची है।</string>
+    <string name="relay_service">DisasterMesh रिले</string>
+    <string name="relay_service_text">आपातकालीन पैकेट रिले हो रहे हैं। डिलीवरी की गारंटी नहीं है।</string>
+</resources>

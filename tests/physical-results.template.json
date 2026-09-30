@@ -1,0 +1,16 @@
+{
+  "radioKind": "PHYSICAL_DEVICE",
+  "status": "NOT_RUN",
+  "note": "Fill this only after the procedure in docs/PHYSICAL_DEVICE_TEST_PLAN.md. Do not copy simulator metrics here.",
+  "phones": [],
+  "aDoesNotSeeC": "NOT_RUN",
+  "cReceivesViaB": "NOT_RUN",
+  "messageId": null,
+  "hopCount": null,
+  "disconnectBlocksUpdate": "NOT_RUN",
+  "reconnectDeliversOnce": "NOT_RUN",
+  "duplicateDropped": "NOT_RUN",
+  "processRestart": "NOT_RUN",
+  "gatewaySync": "NOT_RUN",
+  "operatorAck": "NOT_RUN"
+}

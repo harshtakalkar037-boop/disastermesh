@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Debug builds may use a lab HTTP command center. The UI still labels that link unencrypted. -->
+    <application android:usesCleartextTraffic="true" />
+</manifest>

@@ -1,0 +1,14 @@
+{
+  "name": "@disastermesh/protocol",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "DisasterMesh DMSP/1 packet codec, routing policy, and offline report extractor.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "node --import tsx --test test/*.test.ts",
+    "fixtures": "node --import tsx src/export-fixtures.ts"
+  }
+}

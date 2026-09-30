@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://disastermesh.local/schema/dmsp-1-logical.json",
+  "title": "DMSP/1 logical packet",
+  "description": "Logical view of the binary packet. The wire format is documented in docs/PACKET_FORMAT.md. This schema is not a claim of radio interoperability.",
+  "type": "object",
+  "required": ["version", "priority", "payloadType", "messageId", "originPseudonym", "eventTimestampMs", "expiryTimestampMs", "simulated"],
+  "properties": {
+    "version": { "const": 1 },
+    "priority": { "type": "integer", "minimum": 0, "maximum": 4 },
+    "payloadType": { "enum": ["hello", "status", "disaster_report", "sos", "group", "alert", "ack", "rescue_update", "text_message", "photo_meta", "capability"] },
+    "messageId": { "type": "string", "pattern": "^[0-9a-f]{32}$" },
+    "originPseudonym": { "type": "string", "pattern": "^[0-9a-f]{32}$" },
+    "eventTimestampMs": { "type": "integer", "minimum": 0 },
+    "expiryTimestampMs": { "type": "integer", "minimum": 0 },
+    "hopLimit": { "type": "integer", "minimum": 0, "maximum": 8 },
+    "simulated": { "type": "boolean" }
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "name": "disastermesh",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Offline-first disaster response prototype. Not a certified emergency service.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "workspaces": [
+    "shared-protocol",
+    "backend",
+    "command-center",
+    "simulator"
+  ],
+  "scripts": {
+    "test": "npm run test -w @disastermesh/protocol && npm run test -w @disastermesh/backend && npm run test -w @disastermesh/simulator && npm run test -w @disastermesh/command-center",
+    "dev:api": "npm run dev -w @disastermesh/backend",
+    "dev:web": "npm run dev -w @disastermesh/command-center",
+    "seed": "npm run seed -w @disastermesh/backend",
+    "simulate": "npm run start -w @disastermesh/simulator --",
+    "build:web": "npm run build -w @disastermesh/command-center",
+    "fixtures": "npm run fixtures -w @disastermesh/protocol"
+  },
+  "devDependencies": {
+    "@types/node": "20.17.6",
+    "tsx": "4.19.2",
+    "typescript": "5.6.3"
+  }
+}

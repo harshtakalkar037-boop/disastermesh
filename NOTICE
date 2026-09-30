@@ -1,0 +1,16 @@
+DisasterMesh prototype
+Copyright 2026 DisasterMesh contributors
+
+This project uses, and does not claim authorship of:
+
+- Node.js crypto (ECDSA P-256)
+- Fastify and its plugins
+- PostgreSQL and, for local demo only, PGlite
+- React, Vite, Tailwind CSS
+- Leaflet and OpenStreetMap tiles (online map only; tiles have their own copyright and usage policy)
+- AndroidX, Jetpack Compose, and the Android Bluetooth and Wi-Fi APIs
+- OpenJDK / the Kotlin and Gradle toolchains used to build the app
+
+Bluetooth Mesh, Wi-Fi Direct, Wi-Fi Aware, and Nearby Connections are platform technologies. This project does not claim certification, a Bluetooth SIG service assignment, or a government alert integration. The custom service UUID `6d5e7c10-8a1e-4b3a-9f62-d1a4c8e0b001` is an unofficial prototype identifier.
+
+No SACHET, NDMA, or other official warning feed is connected.

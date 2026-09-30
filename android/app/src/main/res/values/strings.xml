@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">DisasterMesh</string>
+    <string name="need_help">NEED HELP NOW</string>
+    <string name="im_safe">I\'M SAFE</string>
+    <string name="evacuating">EVACUATING</string>
+    <string name="report_disaster">REPORT DISASTER</string>
+    <string name="find_help">FIND NEARBY HELP</string>
+    <string name="sos">EMERGENCY SOS</string>
+    <string name="disclaimer">Prototype. Not a certified emergency service. No rescue is guaranteed.</string>
+    <string name="not_reached">This report has NOT reached rescuers.</string>
+    <string name="relay_service">DisasterMesh relay</string>
+    <string name="relay_service_text">Relaying emergency packets. This does not guarantee delivery.</string>
+</resources>

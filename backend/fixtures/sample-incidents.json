@@ -1,0 +1,15 @@
+{
+  "label": "SIMULATED",
+  "note": "Fictional sample only. Not a live incident and not loaded into the live dashboard by default.",
+  "incidents": [
+    {
+      "type": "flood",
+      "state": "need_help",
+      "people": 3,
+      "lat": 18.6298,
+      "lon": 73.7997,
+      "accuracyM": 18,
+      "text": "Fictional sample near Pimpri. Water reported by a script, not a person."
+    }
+  ]
+}
